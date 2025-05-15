@@ -47,7 +47,7 @@ alert_log_path = "/root/alert.log"
 # WindowPost—Miner日志路径「选填，在WindowPost-Miner上运行时需要填写」
 wdpost_log_path = "/home/ps/miner.log"
 # fil_account 为你的Miner节点号「必填，用于爆块检测」
-fil_account = "f01761579"
+fil_account = "AI3"
 # 最长时间任务告警，p1默认是小时，p2默认是分钟，c默认是分钟，「选填」
 p1_job_time_alert = 5
 p2_job_time_alert = 40
@@ -524,9 +524,7 @@ def daily_collection():
 
 def delete_pod_by_ip(ip, namespace="kubesub"):
     try:
-        get_pod_cmd = (
-            f"kubectl get pods -n {namespace} -o wide | grep {ip} | awk '{{print $1}}'"
-        )
+        get_pod_cmd = f"kubectl get pods -n {namespace} -o wide | grep -w {ip} | awk '{{print $1}}' | head -n 1"
         pod_name = sp.check_output(get_pod_cmd, shell=True, text=True).strip()
         if pod_name:
             print(f"Deleting pod {pod_name} for IP {ip}")
@@ -584,10 +582,10 @@ def rate_collection():
     ip_values = fetch_ip_values()
     for ip in problem_ips:
         if ip not in ip_values:
-            server_post("AI3算力检测", f"{ip} 算力丢失，请及时处理！")
+            server_post("算力检测", f"{ip} 算力丢失，请及时处理！")
         elif ip_values[ip] / 1024 < 10:
             server_post(
-                "AI3算力检测",
+                "算力检测",
                 f"{ip} 算力异常（{ip_values[ip]/1024:.2f} TiB），请及时处理！",
             )
 
@@ -651,7 +649,7 @@ def loop():
             sleep_time = check_interval - (end_time - start_time)
             # sleep
             print("sleep {0} seconds\n".format(check_interval))
-            time.sleep(sleep_time)
+            time.sleep(check_interval)
         except KeyboardInterrupt:
             exit(0)
         except:
