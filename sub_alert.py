@@ -522,10 +522,22 @@ def daily_collection():
         server_post("每日简报", res_string)
 
 
-# 存储机算力检测
-def rate_collection():
-    ip_list = server_ip.strip().split("|")
-    # 获取 Prometheus 指标数据
+def delete_pod_by_ip(ip, namespace="kubesub"):
+    try:
+        get_pod_cmd = (
+            f"kubectl get pods -n {namespace} -o wide | grep {ip} | awk '{{print $1}}'"
+        )
+        pod_name = sp.check_output(get_pod_cmd, shell=True, text=True).strip()
+        if pod_name:
+            print(f"Deleting pod {pod_name} for IP {ip}")
+            sp.run(f"kubectl delete pod {pod_name} -n {namespace}", shell=True)
+        else:
+            print(f"No pod found for IP {ip}")
+    except Exception as e:
+        print(f"Failed to delete pod for IP {ip}: {e}")
+
+
+def fetch_ip_values():
     cmd = [
         "curl",
         "-u",
@@ -541,19 +553,43 @@ def rate_collection():
         print("请求失败：", response.stderr)
         exit(1)
 
-    # 解析 JSON 响应
     data = json.loads(response.stdout)
     results = data.get("data", {}).get("result", [])
-    ip_values = {
+    return {
         item["metric"]["exported_instance"]: float(item["value"][1]) for item in results
     }
 
-    # 遍历 IP 列表
+
+def rate_collection():
+    ip_list = server_ip.strip().split("|")
+
+    # 第一次获取 Prometheus 指标
+    ip_values = fetch_ip_values()
+
+    # 第一次筛选异常 IP
+    problem_ips = []
     for ip in ip_list:
+        if ip not in ip_values or ip_values[ip] / 1024 < 10:
+            delete_pod_by_ip(ip)
+            problem_ips.append(ip)
+
+    if not problem_ips:
+        return  # 没有问题 IP，直接返回
+
+    # 等待 5 分钟
+    print("等待 5 分钟以检查 pod 重建后的状态...")
+    time.sleep(300)
+
+    # 第二次检测
+    ip_values = fetch_ip_values()
+    for ip in problem_ips:
         if ip not in ip_values:
-            server_post("AI3算力检测", ip + "算力出现丢失，请及时处理！")
+            server_post("AI3算力检测", f"{ip} 算力丢失，请及时处理！")
         elif ip_values[ip] / 1024 < 10:
-            server_post("AI3算力检测", ip + "算力出现异常，请及时处理！")
+            server_post(
+                "AI3算力检测",
+                f"{ip} 算力异常（{ip_values[ip]/1024:.2f} TiB），请及时处理！",
+            )
 
 
 def loop():
