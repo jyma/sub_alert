@@ -43,7 +43,7 @@ daily_summary_time = "12"
 # 所有运行该告警脚本的机器内网ip，以|号分割，用来收集所有机器告警脚本日志中的信息
 collection_ip = "192.168.7.11|192.168.7.12|192.168.7.13|192.168.6.11|192.168.2.11"
 # 所有运行该脚本的机器的告警日志路径（建议所有机器告警日志在同一目录下）
-alert_log_path = "/root/alert.log"
+alert_log_path = "/root/sub_alert/sub_alert.log"
 # WindowPost—Miner日志路径「选填，在WindowPost-Miner上运行时需要填写」
 wdpost_log_path = "/home/ps/miner.log"
 # fil_account 为你的Miner节点号「必填，用于爆块检测」
@@ -635,7 +635,7 @@ def AI3_daily_collection():
     now = time.time()
     time_flow = abs(int(now) - int(today_anytime_tsp(int(daily_summary_time))))
 
-    if int(time_flow) <= (int(check_interval) / 2):
+    if int(time_flow) <= int(check_interval):
         # ✅ 本机日志检查（不再通过 ssh）
         try:
             out = sp.getoutput(
