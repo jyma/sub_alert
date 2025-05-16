@@ -572,7 +572,7 @@ def rate_collection():
             problem_ips.append(ip)
 
     if not problem_ips:
-        return  # 没有问题 IP，直接返回
+        return True  # 没有问题 IP，直接返回
 
     # 等待 5 分钟
     print("等待 5 分钟以检查 pod 重建后的状态...")
@@ -588,6 +588,7 @@ def rate_collection():
                 "算力检测",
                 f"{ip} 算力异常（{ip_values[ip]/1024:.2f} TiB），请及时处理！",
             )
+    return False
 
 
 def loop():
