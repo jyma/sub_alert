@@ -468,17 +468,24 @@ def net_check(check_type=""):
     global net_ip
     is_ip_reach = True
     ips = net_ip.split("|")
-    for str in ips:
-        out = sp.getoutput("timeout 5s nc -zv " + str)
-        print("net_check:")
-        print(out)
-        if out.strip() and out.find("succeeded") >= 0:
-            print("true")
-            continue
-        print("false")
-        server_post(machine_name, str + "不可达，请及时排查！")
-        is_ip_reach = False
-        time.sleep(1)
+
+    for ip in ips:
+        success = False
+        for attempt in range(2):  # 尝试两次
+            out = sp.getoutput(f"timeout 3s nc -zv {ip}")
+            print("net_check:")
+            print(out)
+            if "succeeded" in out:
+                print("true")
+                success = True
+                break
+            time.sleep(5)  # 每次尝试之间等待1秒
+
+        if not success:
+            print("false")
+            server_post(machine_name, f"{ip} 不可达，请及时排查！")
+            is_ip_reach = False
+
     return is_ip_reach
 
 
