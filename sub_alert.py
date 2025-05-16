@@ -565,6 +565,34 @@ def fetch_ip_values():
     }
 
 
+def fetch_power_total():
+    try:
+        cmd = [
+            "curl",
+            "-u",
+            "admin:prom-operator",
+            "-G",
+            "http://localhost:3000/api/datasources/proxy/1/api/v1/query",
+            "--data-urlencode",
+            "query=sum(rate(kubesub_auditor_auditing_sectors_total[5m]))",
+        ]
+        response = sp.run(cmd, stdout=sp.PIPE, stderr=sp.PIPE, text=True)
+        if response.returncode != 0:
+            print("Prometheus 请求失败：", response.stderr)
+            return None
+
+        data = json.loads(response.stdout)
+        result = data.get("data", {}).get("result", [])
+        if result and "value" in result[0]:
+            raw_value = float(result[0]["value"][1])
+            gib_value = raw_value / 1000 / 1000
+            return gib_value
+        return None
+    except Exception as e:
+        print("解析 Prometheus 数据出错：", e)
+        return None
+
+
 def rate_collection():
     ip_list = server_ip.strip().split("|")
 
@@ -598,6 +626,48 @@ def rate_collection():
     return False
 
 
+def AI3_daily_collection():
+    global collection_ip
+    global alert_log_path
+    res_string = ""
+    check_status = True
+    ips = collection_ip.split("|")
+    now = time.time()
+    time_flow = abs(int(now) - int(today_anytime_tsp(int(daily_summary_time))))
+
+    if int(time_flow) <= (int(check_interval) / 2):
+        # ✅ 本机日志检查（不再通过 ssh）
+        try:
+            out = sp.getoutput(
+                "cat " + alert_log_path + " | grep -a -A 1 Check | sed '$!d'"
+            )
+            if is_valid_date(out):
+                timestamp = int(time.mktime(time.strptime(out, "%a %b %d %H:%M:%S %Y")))
+                if (int(now) - timestamp) > int(check_interval + 300):
+                    res_string += "本机日志时间过旧，"
+                    check_status = False
+            else:
+                res_string += "未能正确获取本机日志时间，"
+                check_status = False
+        except Exception as e:
+            res_string += "读取本机日志失败，"
+            check_status = False
+
+        if check_status:
+            res_string += "告警脚本正常运行。"
+        else:
+            res_string += "机器告警脚本无法获取或可能出现故障，请及时查看。"
+
+        # ✅ 添加总算力（TiB）
+        power_gib = fetch_power_total()
+        if power_gib is not None:
+            res_string += f" 当前总算力为 {power_gib:.2f} PiB。"
+        else:
+            res_string += " 无法获取当前总算力。"
+
+        server_post("每日简报", res_string)
+
+
 def loop():
     global sector_faults_num
     sector_faults_num = 0
@@ -615,6 +685,8 @@ def loop():
                 print("各公网均可达，无异常")
             if check_machine.find("一") >= 0:
                 if rate_collection():
+                    if daily_summary:
+                        AI3_daily_collection()
                     print("AI3已巡检完毕，无异常")
             time.sleep(3)
             if check_machine.find("二") >= 0:
