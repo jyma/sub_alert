@@ -684,7 +684,7 @@ def loop():
             if net_check():
                 print("各公网均可达，无异常")
             if check_machine.find("一") >= 0:
-                if rate_collection():
+                if nvidia_check() and rate_collection():
                     if daily_summary:
                         AI3_daily_collection()
                     print("AI3已巡检完毕，无异常")
