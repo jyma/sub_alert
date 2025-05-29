@@ -529,15 +529,21 @@ def daily_collection():
         server_post("每日简报", res_string)
 
 
-def delete_pod_by_ip(ip, namespace="kubesub"):
+
+def delete_pod_by_ip(ip, namespace="kubesub", timeout=10):
     try:
         get_pod_cmd = f"kubectl get pods -n {namespace} -o wide | grep -w {ip} | awk '{{print $1}}' | head -n 1"
-        pod_name = sp.check_output(get_pod_cmd, shell=True, text=True).strip()
+        pod_name = sp.check_output(get_pod_cmd, shell=True, text=True, timeout=timeout).strip()
         if pod_name:
             print(f"Deleting pod {pod_name} for IP {ip}")
-            sp.run(f"kubectl delete pod {pod_name} -n {namespace}", shell=True)
+            try:
+                sp.run(f"kubectl delete pod {pod_name} -n {namespace}", shell=True, timeout=timeout)
+            except sp.TimeoutExpired:
+                print(f"Deleting pod {pod_name} timed out after {timeout} seconds.")
         else:
             print(f"No pod found for IP {ip}")
+    except sp.TimeoutExpired:
+        print(f"Command to get pod for IP {ip} timed out after {timeout} seconds.")
     except Exception as e:
         print(f"Failed to delete pod for IP {ip}: {e}")
 
