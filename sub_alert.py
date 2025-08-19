@@ -542,7 +542,7 @@ def daily_collection():
 
 def delete_pod_by_ip(ip, namespace="kubesub", timeout=10):
     try:
-        get_pod_cmd = f"kubectl get pods -n {namespace} -o wide | grep -w {ip} | awk '{{print $1}}' | head -n 1"
+        get_pod_cmd = f"kubectl get pods -n {namespace} -o wide | grep -F {ip} | awk '{{print $1}}' | head -n 1"
         pod_name = sp.check_output(
             get_pod_cmd, shell=True, text=True, timeout=timeout
         ).strip()
